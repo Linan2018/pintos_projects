@@ -92,6 +92,8 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+    
+    int block_ticks;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -116,6 +118,8 @@ void thread_print_stats (void);
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
+
+
 void thread_block (void);
 void thread_unblock (struct thread *);
 
@@ -129,6 +133,10 @@ void thread_yield (void);
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
+
+
+// block_check!!!
+void block_check (struct thread *t, void *aux UNUSED);
 
 int thread_get_priority (void);
 void thread_set_priority (int);

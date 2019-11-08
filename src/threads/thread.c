@@ -218,15 +218,21 @@ thread_create (const char *name, int priority,
    This function must be called with interrupts turned off.  It
    is usually a better idea to use one of the synchronization
    primitives in synch.h. */
+
 void
-thread_block (void) 
+thread_block (void)
 {
+  // not out
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
-
+  
+  // let  thread_current   blocked
   thread_current ()->status = THREAD_BLOCKED;
   schedule ();
 }
+
+
+
 
 /* Transitions a blocked thread T to the ready-to-run state.
    This is an error if T is not blocked.  (Use thread_yield() to
@@ -245,6 +251,8 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
+  
+  // put   t   into   ready_list
   list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
@@ -338,7 +346,18 @@ thread_foreach (thread_action_func *func, void *aux)
       func (t, aux);
     }
 }
-
+void
+block_check (struct thread *t, void *aux UNUSED)
+{
+  if (t->status == THREAD_BLOCKED && t->block_ticks > 0)
+  {
+      t->block_ticks--;
+      if (t->block_ticks == 0)
+      {
+          thread_unblock(t);
+      }
+  }
+}
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
