@@ -100,6 +100,17 @@ thread_init (void)
   initial_thread->tid = allocate_tid ();
 }
 
+
+
+/*  compare   priority    */
+bool
+thread_cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  return list_entry(a, struct thread, elem)->priority > list_entry(b, struct thread, elem)->priority;
+}
+
+
+
 /* Starts preemptive thread scheduling by enabling interrupts.
    Also creates the idle thread. */
 void
@@ -208,6 +219,11 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+  
+   if (thread_current ()->priority < priority)
+  {
+     thread_yield ();
+   }
 
   return tid;
 }
@@ -253,7 +269,7 @@ thread_unblock (struct thread *t)
   ASSERT (t->status == THREAD_BLOCKED);
   
   // put   t   into   ready_list
-  list_push_back (&ready_list, &t->elem);
+  list_insert_ordered (&ready_list, &t->elem, (list_less_func *) &thread_cmp_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -324,7 +340,8 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    
+    list_insert_ordered (&ready_list, &cur->elem, (list_less_func *) &thread_cmp_priority, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -363,6 +380,29 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  
+  // tests/threads/priority-change
+  thread_yield ();
+  // OR check wether old <= new_priority and yield
+  
+  /*
+Acceptable output:
+  (priority-change) begin
+  (priority-change) Creating a high-priority thread 2.
+  (priority-change) Thread 2 now lowering priority.
+  (priority-change) Thread 2 should have just lowered its priority.
+  (priority-change) Thread 2 exiting.
+  (priority-change) Thread 2 should have just exited.
+  (priority-change) end
+Differences in `diff -u' format:
+  (priority-change) begin
+  (priority-change) Creating a high-priority thread 2.
+- (priority-change) Thread 2 now lowering priority.
+  (priority-change) Thread 2 should have just lowered its priority.
+- (priority-change) Thread 2 exiting.        <-----------------------------------------------not yield CPU
+  (priority-change) Thread 2 should have just exited.
+  (priority-change) end
+  * */
 }
 
 /* Returns the current thread's priority. */
@@ -488,7 +528,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  list_push_back (&all_list, &t->allelem);
+  list_insert_ordered (&all_list, &t->allelem, (list_less_func *) &thread_cmp_priority, NULL);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
