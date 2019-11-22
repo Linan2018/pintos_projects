@@ -274,6 +274,46 @@ thread_unblock (struct thread *t)
   intr_set_level (old_level);
 }
 
+
+/* Let thread hold a lock */
+void
+thread_hold_the_lock(struct lock *lock)
+{
+  enum intr_level old_level = intr_disable ();
+  list_insert_ordered (&thread_current ()->locks, &lock->elem, lock_cmp_priority, NULL);
+
+  if (lock->max_priority > thread_current ()->priority)
+  {
+    thread_current ()->priority = lock->max_priority;
+    thread_yield ();
+  }
+
+  intr_set_level (old_level);
+}
+
+/* Donate current priority to thread t. */
+void
+thread_donate_priority (struct thread *t)
+{
+  enum intr_level old_level = intr_disable ();
+  thread_update_priority (t);
+
+  if (t->status == THREAD_READY)
+  {
+    list_remove (&t->elem);
+    list_insert_ordered (&ready_list, &t->elem, thread_cmp_priority, NULL);
+  }
+  intr_set_level (old_level);
+}
+
+ /* lock comparation function */
+bool
+lock_cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  return list_entry (a, struct lock, elem)->max_priority > list_entry (b, struct lock, elem)->max_priority;
+}
+
+
 /* Returns the name of the running thread. */
 const char *
 thread_name (void) 
