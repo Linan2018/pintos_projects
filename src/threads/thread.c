@@ -291,6 +291,16 @@ thread_hold_the_lock(struct lock *lock)
   intr_set_level (old_level);
 }
 
+/* Remove a lock. */
+void
+thread_remove_lock (struct lock *lock)
+{
+  enum intr_level old_level = intr_disable ();
+  list_remove (&lock->elem);
+  thread_update_priority (thread_current ());
+  intr_set_level (old_level);
+}
+
 /* Donate current priority to thread t. */
 void
 thread_donate_priority (struct thread *t)
