@@ -301,6 +301,27 @@ thread_remove_lock (struct lock *lock)
   intr_set_level (old_level);
 }
 
+/* Update priority. */
+void
+thread_update_priority (struct thread *t)
+{
+  enum intr_level old_level = intr_disable ();
+  int max_priority = t->base_priority;
+  int lock_priority;
+
+  if (!list_empty (&t->locks))
+  {
+    list_sort (&t->locks, lock_cmp_priority, NULL);
+    lock_priority = list_entry (list_front (&t->locks), struct lock, elem)->max_priority;
+    if (lock_priority > max_priority)
+      max_priority = lock_priority;
+  }
+
+  t->priority = max_priority;
+  intr_set_level (old_level);
+}
+
+
 /* Donate current priority to thread t. */
 void
 thread_donate_priority (struct thread *t)
@@ -420,32 +441,24 @@ block_check (struct thread *t, void *aux UNUSED)
 }
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
-thread_set_priority (int new_priority) 
+thread_set_priority (int new_priority)
 {
-  thread_current ()->priority = new_priority;
-  
-  // tests/threads/priority-change
-  thread_yield ();
-  // OR check wether old <= new_priority and yield
-  
-  /*
-Acceptable output:
-  (priority-change) begin
-  (priority-change) Creating a high-priority thread 2.
-  (priority-change) Thread 2 now lowering priority.
-  (priority-change) Thread 2 should have just lowered its priority.
-  (priority-change) Thread 2 exiting.
-  (priority-change) Thread 2 should have just exited.
-  (priority-change) end
-Differences in `diff -u' format:
-  (priority-change) begin
-  (priority-change) Creating a high-priority thread 2.
-- (priority-change) Thread 2 now lowering priority.
-  (priority-change) Thread 2 should have just lowered its priority.
-- (priority-change) Thread 2 exiting.        <-----------------------------------------------not yield CPU
-  (priority-change) Thread 2 should have just exited.
-  (priority-change) end
-  * */
+  if (thread_mlfqs)
+    return;
+
+  enum intr_level old_level = intr_disable ();
+
+  struct thread *current_thread = thread_current ();
+  int old_priority = current_thread->priority;
+  current_thread->base_priority = new_priority;
+
+  if (list_empty (&current_thread->locks) || new_priority > old_priority)
+  {
+    current_thread->priority = new_priority;
+    thread_yield ();
+  }
+
+  intr_set_level (old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -572,6 +585,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   list_insert_ordered (&all_list, &t->allelem, (list_less_func *) &thread_cmp_priority, NULL);
+  t->base_priority = priority;
+  list_init (&t->locks);
+  t->lock_waiting = NULL;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
