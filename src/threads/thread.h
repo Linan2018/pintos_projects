@@ -138,7 +138,7 @@ void thread_donate_priority (struct thread *t);
 void thread_update_priority (struct thread *t)
 
 void thread_remove_lock (struct lock *lock);
-void thread_remove_lock (struct lock *lock)
+void thread_remove_lock (struct lock *lock);
 
 
 void thread_exit (void) NO_RETURN;
