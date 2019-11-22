@@ -306,13 +306,6 @@ thread_donate_priority (struct thread *t)
   intr_set_level (old_level);
 }
 
- /* lock comparation function */
-bool
-lock_cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
-{
-  return list_entry (a, struct lock, elem)->max_priority > list_entry (b, struct lock, elem)->max_priority;
-}
-
 
 /* Returns the name of the running thread. */
 const char *
